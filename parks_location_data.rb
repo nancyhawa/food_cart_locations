@@ -200,10 +200,22 @@ def get_comments(location)
   rescue
   return "No comments"
 end
+
+#<---------------GOOGLE_MAPS ----------------------->
+#This will open the park based on latitude/longitude
+def open_park(lat,long)
+  system("open", "https://www.google.com/maps/search/#{}{lat},#{long}")
+end
+
+#This will open the cart location
+def open_cart(location)
+  system("open", "https://www.google.com/maps/search/#{location}")
+end
+
 # print ["Happy", "sad", "angry"]
 # print FoodCarts.new.parks_with_locations.length
 # FoodCarts.new.park_names.size
 
  # print FoodCarts.new.park_locations_hash.select {|k,v| v != [1000000000000000000, 1000000000000000000] && !hash2.has_key?(k)}
 
- FoodCarts.new.run
+ #FoodCarts.new.run
