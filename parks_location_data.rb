@@ -128,7 +128,7 @@ class FoodCarts
   end
 
   def print_food_cart_info
-    puts "We are searching Central Park for food carts. #{@park}."
+    puts "We are searching #{@park} for food carts. #{@park}."
     puts "Here are the locations of the food carts in #{@park}:"
     near_by_food_carts(@park).each.with_index(1) do  |cart, i|
       puts "#{i}. #{cart}  RATING: #{get_rating(cart)}, COMMENTS:  #{get_comments(cart)}"
