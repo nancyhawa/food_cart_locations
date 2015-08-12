@@ -3,11 +3,40 @@ require 'open-uri'
 require 'geocoder'
 require 'rest_client'
 require_relative 'parks_list'
-require_relative 'key'
 require 'pstore'
 require 'pry'
-require 'paint'
-class FoodCarts
+require 'table_print'
+
+class Reviews
+  attr_accessor :park, :location, :rating, :comment
+
+  def initialize(park, location, rating, comment=nil)
+    @park = park
+    @location = location
+    @rating = rating
+    @comment = comment
+  end
+
+  def delete_reviews
+    File.delete("review_data.pstore")
+    rescue
+    return "Data file does not exist"
+  end
+end
+
+
+### how to add reviews###
+
+# $store.transaction { $store["nancy"] = Reviews.new("Battery Park", "Nancys Food Cart", 4, "fast clean cheap") }
+# test = []
+#
+# locations = $store.transaction { $store.roots }
+# locations.each do |cart|
+#      test << $store.transaction { $store[cart] }
+# end
+
+####
+class CLI
 
   def initialize
     @data = 'http://www.nycgovparks.org/bigapps/DPR_Eateries_001.xml'
@@ -23,7 +52,7 @@ class FoodCarts
   end
 
   def main_menu
-    puts "Would you like to FIND a cart or write a REVIEW?"
+    puts "Would you like to FIND a cart, WRITE a review, VIEW your old reviews?"
     get_user_input
     respond_to_mm_user_input
   end
@@ -32,13 +61,40 @@ class FoodCarts
     case @input.downcase
     when 'find'
       find_cart
-    when 'review'
+    when 'write'
       puts "Ok.  First we'll need to find the cart that you are going to review."
       find_cart
+    when 'view'
+      print_full_table
     else
       puts "I didn't understand that."
       main_menu
     end
+  end
+
+  def print_full_table
+    # if @store
+      food_carts_table = []
+      locations = @store.transaction { @store.roots }
+      locations.each do |cart|
+        food_carts_table << @store.transaction { @store[cart] }
+      end
+      puts "==========REVIEWS FOR ALL PARKS==========="
+      tp food_carts_table, :park, {:location => {:width => 50}}, :rating, :comment
+  end
+
+  def print_park_table
+    food_carts_table = []
+    locations = @store.transaction { @store.roots }
+    locations.each do |cart|
+      if cart.split(":")[0] == @park
+        food_carts_table << @store.transaction { @store[cart] }
+      end
+    end
+      if  !food_carts_table.empty?
+        (tp food_carts_table, :park, {:location => {:width => 50}}, :rating, :comment)
+        puts "==========REVIEWS FOR #{@park}==========="
+      end
   end
 
   def exit_program
@@ -66,7 +122,8 @@ class FoodCarts
 
   def user_chooses_park
     puts "Which park would you like to search?"
-    @answer = gets.chomp
+    @input = gets.chomp
+    puts
     respond_to_park_choice
   end
 
@@ -87,7 +144,8 @@ class FoodCarts
       puts "I didn't understand that answer."
       request_review
     end
-    store_review(@location, @rating, @comments)
+    @store.transaction { @store["#{@park}: #{@location}"] = Reviews.new(@park, @location, @rating, @comments) }
+
     puts "Thank you for your review!"
     main_menu
   end
@@ -102,6 +160,7 @@ class FoodCarts
   def user_rates_cart
     puts "Rate the cart from 1-5."
     @rating = gets.chomp
+    puts
     if !["1", "2", "3", "4", "5"].include?(@rating)
       puts "I didn't understand that.  Please make sure your response is an integer between 1 and 5."
       user_rates_cart
@@ -110,11 +169,11 @@ class FoodCarts
 
   def user_adds_comments
     puts "Would you like to add comments?  Answer 'y' or 'n'."
-    @response = gets.chomp.downcase
-    if @response == 'y'
+    get_user_input
+    if @input == 'y'
       puts "Ok, input your comments."
       @comments = gets.chomp
-    elsif @response == 'n'
+    elsif @input == 'n'
       puts "Ok, great.  I'll store your rating."
     else
       puts "I didn't understand that."
@@ -124,6 +183,7 @@ class FoodCarts
 
   def get_user_input
     @input = gets.chomp
+    puts
     exit_program
   end
 
@@ -131,14 +191,15 @@ class FoodCarts
     puts "We are searching #{@park} for food carts. #{@park}."
     puts "Here are the locations of the food carts in #{@park}:"
     near_by_food_carts(@park).each.with_index(1) do  |cart, i|
-      puts "#{i}. #{cart}  RATING: #{get_rating(cart)}, COMMENTS:  #{get_comments(cart)}"
+      puts "#{i}. #{cart}"
     end
+    print_park_table
   end
 
   def respond_to_park_choice
     # normalized_hash = park_list_hash.each_key { |key| key.downcase}
-    if park_list_hash.has_key?(@answer)
-      @park = @answer.split(" ").map { |x| x.capitalize }.join(" ")
+    if park_list_hash.has_key?(@input.split(" ").map { |x| x.capitalize }.join(" "))
+      @park = @input.split(" ").map { |x| x.capitalize }.join(" ")
       puts "The closest park to you is #{@park}."
       puts "Here are the locations of the food carts in #{@park}:"
       puts near_by_food_carts(@park)
@@ -215,14 +276,11 @@ end
    results = Geocoder.search(ip)[0]
    latitude = results.latitude
    longitude = results.longitude
-  #  system("open", "https://www.google.com/maps/search/#{latitude},#{longitude}")
    return latitude, longitude
   end
 #<---------------REVIEW_METHODS ----------------------->
   def store_review(location,rating,comment="NO COMMENTS")
-    @store.transaction do
-      @store[location] = {rating: rating, comment: comment}
-    end
+    @store.transaction { @store[location] = {rating: rating, comment: comment} }
   end
 
   def get_rating(location)
@@ -237,6 +295,12 @@ end
     return "No comments"
   end
 
+  def delete_reviews
+   File.delete("review_data.pstore")
+   rescue
+   return "Data file does not exist"
+ end
+
 end
 
 # print ["Happy", "sad", "angry"]
@@ -245,4 +309,4 @@ end
 
  # print FoodCarts.new.park_locations_hash.select {|k,v| v != [1000000000000000000, 1000000000000000000] && !hash2.has_key?(k)}
 
- FoodCarts.new.run
+CLI.new.run
