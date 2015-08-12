@@ -2,7 +2,6 @@ require 'nokogiri'
 require 'open-uri'
 require 'geocoder'
 require 'rest_client'
-require_relative 'parks_list'
 require 'pstore'
 require 'pry'
 require 'table_print'
@@ -18,30 +17,18 @@ class Reviews
   end
 
   def delete_reviews
-    File.delete("review_data.pstore")
+    File.delete("./lib/review_data.pstore")
     rescue
     return "Data file does not exist"
   end
 end
 
-
-### how to add reviews###
-
-# $store.transaction { $store["nancy"] = Reviews.new("Battery Park", "Nancys Food Cart", 4, "fast clean cheap") }
-# test = []
-#
-# locations = $store.transaction { $store.roots }
-# locations.each do |cart|
-#      test << $store.transaction { $store[cart] }
-# end
-
-####
 class CLI
 
   def initialize
     @data = 'http://www.nycgovparks.org/bigapps/DPR_Eateries_001.xml'
     @food_carts_api = Nokogiri::XML(open(@data).read)
-    @store = PStore.new("review_data.pstore")
+    @store = PStore.new("./lib/review_data.pstore")
     # Geocoder.configure(:lookup => :bing, :api_key => bing_key)
     # @user_location = get_user_location
   end
