@@ -66,9 +66,20 @@ class CLI
       find_cart
     when 'view'
       print_full_table
+      delete_reviews_option
+      main_menu
     else
       puts "I didn't understand that."
       main_menu
+    end
+  end
+
+  def delete_reviews_option
+    puts "If you would like to clear all of your reviews, type 'clear'.  This data will be lost FOREVER."
+    get_user_input
+    if @user_input == 'clear'
+      delete_reviews
+      puts "Your previous reviews have been deleted."
     end
   end
 
@@ -92,8 +103,8 @@ class CLI
       end
     end
       if  !food_carts_table.empty?
-        (tp food_carts_table, :park, {:location => {:width => 50}}, :rating, :comment)
         puts "==========REVIEWS FOR #{@park}==========="
+        (tp food_carts_table, :park, {:location => {:width => 50}}, :rating, :comment)
       end
   end
 
@@ -112,49 +123,104 @@ class CLI
       print_food_cart_info
     when '2'
       @park = closest_park(get_user_location)
+      puts "The closest park to you is #{@park}."
+      puts "Would you like us to pull up a Google map of the area.  (Be forewarned - sometimes Google maps is wonky.)"
+      get_user_input
+      open_park(@park) if @input == 'y'
       print_food_cart_info
     else
       puts "I didn't understand that."
       find_cart
     end
-    request_review
+    review_or_map
   end
 
   def user_chooses_park
     puts "Which park would you like to search?"
     @input = gets.chomp
-    puts
     respond_to_park_choice
   end
 
-  def request_review
+  def request_review_new_location
     puts "Would you like to add a review? Answer 'y' or 'n'."
     get_user_input
-    write_review
-  end
-
-  def write_review
     if @input.downcase == 'y'
       user_chooses_cart
-      user_rates_cart
-      user_adds_comments
+      set_location
+      write_review
+      store_review
     elsif @input == 'n'
       main_menu
     else
       puts "I didn't understand that answer."
-      request_review
+      request_review_new_location
     end
+  end
+
+  def request_review_same_location
+    puts "Would you like to add a review? Answer 'y' or 'n'."
+    get_user_input
+    if @input.downcase == 'y'
+      write_review
+      store_review
+    elsif @input == 'n'
+      main_menu
+    else
+      puts "I didn't understand that answer."
+      request_review_same_location
+    end
+  end
+
+  def write_review
+    puts "You are reviewing #{@location} in #{@park}."
+    puts
+    user_rates_cart
+    user_adds_comments
+  end
+
+  def store_review
     @store.transaction { @store["#{@park}: #{@location}"] = Reviews.new(@park, @location, @rating, @comments) }
 
     puts "Thank you for your review!"
     main_menu
   end
 
-  def user_chooses_cart
-    puts "Which cart would you like to review?  Select the cart by number."
+  def review_or_map
+    puts "Would you like to add a REVIEW or view a MAP?"
     get_user_input
+    case @input
+    when 'review'
+      @input = 'y'
+      user_chooses_cart
+      set_location
+      write_review
+      store_review
+    when 'map'
+      user_chooses_cart
+      set_location
+      puts "You selected #{@location} in #{@park}."
+      puts
+      open_cart(@location)
+      request_review_same_location
+    else
+      puts "I didn't understand that."
+      review_or_map
+    end
+  end
+
+  def user_chooses_cart
+    puts "Which cart would you like to select?  Select the cart by number."
+    get_user_input
+  end
+
+  def set_location
     @location = near_by_food_carts(@park)[@input.to_i - 1]
-    puts "You selected #{@location} in #{@park}."
+  end
+
+  def ask_user_cart_map
+      puts "Would you like us to pull up a Google map of the area.  (Be forewarned - sometimes Google maps is wonky.)"
+      get_user_input
+      open_cart(@location) if @input == 'y'
   end
 
   def user_rates_cart
@@ -198,11 +264,14 @@ class CLI
 
   def respond_to_park_choice
     # normalized_hash = park_list_hash.each_key { |key| key.downcase}
-    if park_list_hash.has_key?(@input.split(" ").map { |x| x.capitalize }.join(" "))
+    if park_list_hash.has_key?(@input.split(" ").map! { |x| x.capitalize }.join(" "))
       @park = @input.split(" ").map { |x| x.capitalize }.join(" ")
-      puts "The closest park to you is #{@park}."
-      puts "Here are the locations of the food carts in #{@park}:"
-      puts near_by_food_carts(@park)
+      puts "Would you like us to pull up a Google map of #{@park}?"
+      response = gets.chomp.downcase
+      open_park(@park) if response == 'y'
+      # puts "The closest park to you is #{@park}."
+      # puts "Here are the locations of the food carts in #{@park}:"
+
     else
       puts "I'm sorry.  That park is not in our database."
       user_chooses_park
@@ -227,7 +296,7 @@ end
     end
     hash
   end
-#--------------Methods for Determining Location ---------------------
+
 
   def park_coordinates(park)
     ##This method was created to programatically create a hash that we then hard coded into our program.
@@ -246,7 +315,7 @@ end
     end
     [latitude, longitude]
    end
-
+#--------------Methods for Determining Location ---------------------
   def closest_park(user_coordinates)
     min_distance = nil
     closest_park = nil
@@ -279,29 +348,45 @@ end
    return latitude, longitude
   end
 #<---------------REVIEW_METHODS ----------------------->
-  def store_review(location,rating,comment="NO COMMENTS")
-    @store.transaction { @store[location] = {rating: rating, comment: comment} }
-  end
+  #The methods below were used only for an old iteration of this program.
+  # def store_review(location,rating,comment="NO COMMENTS")
+  #   @store.transaction { @store[location] = {rating: rating, comment: comment} }
+  # end
 
-  def get_rating(location)
-     @store.transaction {@store[location][:rating]}
-     rescue
-     return "Unrated"
-   end
-
-  def get_comments(location)
-    @store.transaction {@store[location][:comment]}
-    rescue
-    return "No comments"
-  end
+  # def get_rating(location)
+  #    @store.transaction {@store[location][:rating]}
+  #    rescue
+  #    return "Unrated"
+  #  end
+  #
+  # def get_comments(location)
+  #   @store.transaction {@store[location][:comment]}
+  #   rescue
+  #   return "No comments"
+  # end
 
   def delete_reviews
    File.delete("review_data.pstore")
    rescue
    return "Data file does not exist"
+  end
+
+ def open_park(park)
+   lat = park_list_hash[park][0]
+   long = park_list_hash[park][1]
+   system("open", "https://www.google.com/maps/search/#{lat},#{long}")
  end
 
+ #This will open the cart location
+ def open_cart(location)
+   system("open", "https://www.google.com/maps/search/#{@location}")
+ end
+
+
 end
+
+#<---------------GOOGLE_MAPS ----------------------->
+#This will open the park based on latitude/longitude
 
 # print ["Happy", "sad", "angry"]
 # print FoodCarts.new.parks_with_locations.length
@@ -310,3 +395,4 @@ end
  # print FoodCarts.new.park_locations_hash.select {|k,v| v != [1000000000000000000, 1000000000000000000] && !hash2.has_key?(k)}
 
 CLI.new.run
+ #FoodCarts.new.run
