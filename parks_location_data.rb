@@ -169,6 +169,7 @@ end
 #--------------Methods for Determining Location ---------------------
 
   def park_coordinates(park)
+    ##This method was created to programatically create a hash that we then hard coded into our program.
     result = Geocoder.search(park)[0]
     if result
       latitude = result.latitude
