@@ -114,7 +114,7 @@ class FoodCarts
     if @response == 'y'
       puts "Ok, input your comments."
       @comments = gets.chomp
-    if @response == 'n'
+    elsif @response == 'n'
       puts "Ok, great.  I'll store your rating."
     else
       puts "I didn't understand that."
@@ -218,11 +218,6 @@ end
    return latitude, longitude
   end
 #<---------------REVIEW_METHODS ----------------------->
-  def initialize(park, location)
-    @location = location
-    @park = park
-  end
-
   def store_review(location,rating,comment="NO COMMENTS")
     @store.transaction do
       @store[location] = {rating: rating, comment: comment}
